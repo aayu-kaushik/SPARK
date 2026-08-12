@@ -1,4 +1,16 @@
+import { onAuthStateChanged } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  getFirebaseAuth,
+  getFirebaseAuthErrorMessage,
+  loginUser,
+  logoutUser,
+  registerUser,
+} from "@/firebase/auth";
+import { createUserProfile, getUserProfile, type UserProfile } from "@/firebase/users";
 
 export type Role = "admin" | "practitioner" | "student";
 
@@ -9,45 +21,6 @@ export interface AuthUser {
   title: string;
   department: string;
 }
-
-export const DEMO_ACCOUNTS: { role: Role; email: string; password: string; user: AuthUser }[] = [
-  {
-    role: "admin",
-    email: "admin@edupredict.ai",
-    password: "admin123",
-    user: {
-      name: "Dr. Rajesh Malhotra",
-      email: "admin@edupredict.ai",
-      role: "admin",
-      title: "Institution Administrator",
-      department: "Academic Affairs",
-    },
-  },
-  {
-    role: "practitioner",
-    email: "teacher@edupredict.ai",
-    password: "teacher123",
-    user: {
-      name: "Dr. Anil Sharma",
-      email: "teacher@edupredict.ai",
-      role: "practitioner",
-      title: "Associate Professor & Mentor",
-      department: "Computer Science",
-    },
-  },
-  {
-    role: "student",
-    email: "student@edupredict.ai",
-    password: "student123",
-    user: {
-      name: "Rahul Sharma",
-      email: "student@edupredict.ai",
-      role: "student",
-      title: "B.Tech CSE · Semester 5",
-      department: "Computer Science",
-    },
-  },
-];
 
 export const ROLE_HOME: Record<Role, string> = {
   admin: "/admin/dashboard",
@@ -66,55 +39,161 @@ const STORAGE_KEY = "edupredict.session";
 interface AuthContextValue {
   user: AuthUser | null;
   ready: boolean;
-  signIn: (email: string, password: string, role: Role, remember: boolean) => { ok: boolean; error?: string; user?: AuthUser };
-  signOut: () => void;
+  signIn: (
+    email: string,
+    password: string,
+    remember: boolean,
+  ) => Promise<{ ok: boolean; error?: string; user?: AuthUser }>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    role: Role,
+    remember: boolean,
+  ) => Promise<{ ok: boolean; error?: string; user?: AuthUser }>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function loadStoredUser(email: string): AuthUser | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as AuthUser;
+    return stored.email.toLowerCase() === email.toLowerCase() ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistUser(authUser: AuthUser, remember: boolean) {
+  try {
+    const store = remember ? window.localStorage : window.sessionStorage;
+    const other = remember ? window.sessionStorage : window.localStorage;
+    store.setItem(STORAGE_KEY, JSON.stringify(authUser));
+    other.removeItem(STORAGE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function clearStoredUser() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+async function resolveUserFromFirebase(uid: string, email: string): Promise<AuthUser | null> {
+  try {
+    const profile = await getUserProfile(uid);
+    if (profile) return profileToAuthUser(profile);
+  } catch {
+    /* fall back to cached session */
+  }
+  return loadStoredUser(email);
+}
+
+function profileToAuthUser(profile: UserProfile): AuthUser {
+  return {
+    name: profile.name,
+    email: profile.email,
+    role: profile.role,
+    title: profile.title,
+    department: profile.department,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.sessionStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as AuthUser);
-    } catch {
-      /* ignore corrupted session */
-    }
-    setReady(true);
+    if (typeof window === "undefined") return;
+
+    let cancelled = false;
+
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (firebaseUser) => {
+      if (cancelled) return;
+
+      if (!firebaseUser?.email) {
+        setUser(null);
+        setReady(true);
+        return;
+      }
+
+      const authUser = await resolveUserFromFirebase(firebaseUser.uid, firebaseUser.email);
+      if (!cancelled) {
+        setUser(authUser);
+        setReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
-  const signIn = useCallback((email: string, password: string, role: Role, remember: boolean) => {
-    const match = DEMO_ACCOUNTS.find(
-      (a) => a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password,
-    );
-    if (!match) return { ok: false, error: "Invalid email or password. Try a demo account below." };
-    if (match.role !== role) {
-      return { ok: false, error: `These credentials belong to the ${ROLE_LABEL[match.role]} role.` };
-    }
-    setUser(match.user);
+  const signIn = useCallback(async (email: string, password: string, remember: boolean) => {
     try {
-      const store = remember ? window.localStorage : window.sessionStorage;
-      store.setItem(STORAGE_KEY, JSON.stringify(match.user));
-    } catch {
-      /* storage unavailable */
+      const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
+      await loginUser(email.trim(), password, persistence);
+
+      const firebaseUser = getFirebaseAuth().currentUser;
+      if (!firebaseUser?.email) {
+        return { ok: false, error: "Unable to sign in. Please try again." };
+      }
+
+      const authUser = await resolveUserFromFirebase(firebaseUser.uid, firebaseUser.email);
+      if (!authUser) {
+        await logoutUser();
+        return { ok: false, error: "No account profile found. Please create an account first." };
+      }
+
+      persistUser(authUser, remember);
+      setUser(authUser);
+      return { ok: true, user: authUser };
+    } catch (error) {
+      return { ok: false, error: getFirebaseAuthErrorMessage(error) };
     }
-    return { ok: true, user: match.user };
   }, []);
 
-  const signOut = useCallback(() => {
+  const signUp = useCallback(
+    async (name: string, email: string, password: string, role: Role, remember: boolean) => {
+      try {
+        const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
+        const credential = await registerUser(email.trim(), password, persistence);
+        const authUser: AuthUser = {
+          name: name.trim(),
+          email: email.trim(),
+          role,
+          title: ROLE_LABEL[role],
+          department: "",
+        };
+
+        await createUserProfile(credential.user.uid, authUser);
+        persistUser(authUser, remember);
+        setUser(authUser);
+        return { ok: true, user: authUser };
+      } catch (error) {
+        if (getFirebaseAuth().currentUser) await logoutUser();
+        return { ok: false, error: getFirebaseAuthErrorMessage(error) };
+      }
+    },
+    [],
+  );
+
+  const signOut = useCallback(async () => {
     setUser(null);
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-      window.sessionStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* storage unavailable */
-    }
+    clearStoredUser();
+    await logoutUser();
   }, []);
 
-  const value = useMemo(() => ({ user, ready, signIn, signOut }), [user, ready, signIn, signOut]);
+  const value = useMemo(() => ({ user, ready, signIn, signUp, signOut }), [user, ready, signIn, signUp, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

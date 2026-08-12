@@ -208,8 +208,10 @@ export function Topbar({ title, onMenu }: { title: string; onMenu: () => void })
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
-                signOut();
-                toast.success("Signed out", { description: "You have been logged out securely." });
+                void signOut().then(() => {
+                  toast.success("Signed out", { description: "You have been logged out securely." });
+                  navigate({ to: "/login", replace: true });
+                });
               }}
               className="text-critical focus:text-critical"
             >

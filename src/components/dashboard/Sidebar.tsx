@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
   BookOpenCheck,
@@ -74,6 +74,7 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = NAV_BY_ROLE[role];
 
@@ -156,7 +157,9 @@ export function Sidebar({
             </div>
           </div>
           <button
-            onClick={signOut}
+            onClick={() => {
+              void signOut().then(() => navigate({ to: "/login", replace: true }));
+            }}
             className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-critical-soft hover:text-critical"
           >
             <LogOut className="size-[18px]" />

@@ -12,6 +12,7 @@ import {
   Sparkles,
   TrendingUp,
   UserCog,
+  UserPlus,
   UserRound,
   Users,
 } from "lucide-react";
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DEMO_ACCOUNTS, ROLE_HOME, useAuth, type Role } from "@/lib/auth";
+import { ROLE_HOME, useAuth, type Role } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/login")({
       {
         name: "description",
         content:
-          "Sign in to EduPredict AI as an administrator, practitioner or student to access AI dropout risk insights.",
+          "Sign in or create an account on EduPredict AI to access AI dropout risk insights.",
       },
       { property: "og:title", content: "Sign In — EduPredict AI" },
       { property: "og:description", content: "AI-Powered Student Success & Dropout Prediction." },
@@ -40,6 +41,8 @@ export const Route = createFileRoute("/login")({
   }),
   component: LoginPage,
 });
+
+type AuthMode = "signin" | "signup";
 
 const ROLE_OPTIONS: { role: Role; label: string; icon: typeof UserCog; blurb: string }[] = [
   { role: "admin", label: "Admin", icon: UserCog, blurb: "Institution-wide analytics" },
@@ -54,11 +57,14 @@ const HIGHLIGHTS = [
 ];
 
 function LoginPage() {
-  const { signIn, user, ready } = useAuth();
+  const { signIn, signUp, user, ready } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>("admin");
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [role, setRole] = useState<Role>("student");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -68,30 +74,50 @@ function LoginPage() {
     if (ready && user) navigate({ to: ROLE_HOME[user.role], replace: true });
   }, [ready, user, navigate]);
 
-  function fillDemo(target: Role) {
-    const demo = DEMO_ACCOUNTS.find((d) => d.role === target)!;
-    setRole(target);
-    setEmail(demo.email);
-    setPassword(demo.password);
+  function switchMode(next: AuthMode) {
+    setMode(next);
     setError("");
+    setPassword("");
+    setConfirmPassword("");
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (mode === "signup" && password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      const result = signIn(email, password, role, remember);
-      setLoading(false);
+    try {
+      const result =
+        mode === "signin"
+          ? await signIn(email, password, remember)
+          : await signUp(name, email, password, role, remember);
+
       if (!result.ok || !result.user) {
-        setError(result.error ?? "Unable to sign in.");
+        setError(result.error ?? "Unable to continue.");
         return;
       }
-      toast.success(`Welcome back, ${result.user.name.split(" ").slice(-1)[0]}!`, {
-        description: "Your AI risk insights are up to date.",
+
+      const greeting = result.user.name.split(" ")[0];
+      toast.success(mode === "signin" ? `Welcome back, ${greeting}!` : `Account created, ${greeting}!`, {
+        description:
+          mode === "signin"
+            ? "Your AI risk insights are up to date."
+            : "Your account is saved in Firebase. You're signed in.",
       });
       navigate({ to: ROLE_HOME[result.user.role], replace: true });
-    }, 550);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -164,7 +190,7 @@ function LoginPage() {
         </div>
       </section>
 
-      {/* Sign-in form */}
+      {/* Auth form */}
       <section className="flex items-center justify-center bg-background px-4 py-10 sm:px-8">
         <div className="w-full max-w-[420px]">
           <div className="flex items-center gap-3 lg:hidden">
@@ -180,33 +206,76 @@ function LoginPage() {
           <h1 className="mt-8 font-display text-[26px] font-bold text-foreground lg:mt-0">EduPredict AI</h1>
           <p className="mt-1 text-sm text-muted-foreground">AI-Powered Student Success & Dropout Prediction</p>
 
-          <form onSubmit={submit} className="mt-7 space-y-5">
-            <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Sign in as
-              </Label>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {ROLE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.role}
-                    type="button"
-                    onClick={() => setRole(opt.role)}
-                    className={cn(
-                      "rounded-xl border p-3 text-left transition-all duration-200",
-                      role === opt.role
-                        ? "border-primary bg-primary-soft shadow-card"
-                        : "border-border bg-card hover:border-primary/40 hover:bg-muted/50",
-                    )}
-                  >
-                    <opt.icon
-                      className={cn("size-4.5", role === opt.role ? "text-primary" : "text-muted-foreground")}
+          <div className="mt-7 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => switchMode("signin")}
+              className={cn(
+                "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                mode === "signin" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("signup")}
+              className={cn(
+                "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                mode === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form onSubmit={submit} className="mt-5 space-y-5">
+            {mode === "signup" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full name</Label>
+                  <div className="relative">
+                    <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Rahul Sharma"
+                      className="rounded-xl pl-9"
                     />
-                    <span className="mt-2 block text-sm font-semibold">{opt.label}</span>
-                    <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">{opt.blurb}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Register as
+                  </Label>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {ROLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.role}
+                        type="button"
+                        onClick={() => setRole(opt.role)}
+                        className={cn(
+                          "rounded-xl border p-3 text-left transition-all duration-200",
+                          role === opt.role
+                            ? "border-primary bg-primary-soft shadow-card"
+                            : "border-border bg-card hover:border-primary/40 hover:bg-muted/50",
+                        )}
+                      >
+                        <opt.icon
+                          className={cn("size-4.5", role === opt.role ? "text-primary" : "text-muted-foreground")}
+                        />
+                        <span className="mt-2 block text-sm font-semibold">{opt.label}</span>
+                        <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">{opt.blurb}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
@@ -236,6 +305,7 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="rounded-xl px-9"
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -248,22 +318,43 @@ function LoginPage() {
               </div>
             </div>
 
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="rounded-xl px-9"
+                    minLength={6}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Checkbox checked={remember} onCheckedChange={(v) => setRemember(Boolean(v))} />
                 Remember me
               </label>
-              <button
-                type="button"
-                onClick={() =>
-                  toast.info("Password reset link sent", {
-                    description: "Check your institutional inbox for reset instructions.",
-                  })
-                }
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Forgot password?
-              </button>
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toast.info("Password reset link sent", {
+                      description: "Check your inbox for reset instructions.",
+                    })
+                  }
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
 
             {error && (
@@ -273,36 +364,43 @@ function LoginPage() {
             )}
 
             <Button type="submit" size="lg" className="w-full rounded-xl" disabled={loading}>
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
-              {loading ? "Verifying credentials…" : "Sign In"}
+              {loading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : mode === "signin" ? (
+                <KeyRound className="size-4" />
+              ) : (
+                <UserPlus className="size-4" />
+              )}
+              {loading
+                ? mode === "signin"
+                  ? "Signing in…"
+                  : "Creating account…"
+                : mode === "signin"
+                  ? "Sign In"
+                  : "Create Account"}
             </Button>
           </form>
 
-          <div className="mt-7 rounded-xl border border-dashed border-border bg-muted/40 p-4">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Sparkles className="size-3.5 text-primary" /> Demo credentials (development)
-            </p>
-            <div className="mt-3 space-y-2">
-              {DEMO_ACCOUNTS.map((d) => (
-                <button
-                  key={d.role}
-                  onClick={() => fillDemo(d.role)}
-                  className="flex w-full items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-left transition-colors hover:bg-primary-soft"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-semibold capitalize">{d.role}</span>
-                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {d.email} · {d.password}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-semibold text-primary">Use</span>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            {mode === "signin" ? (
+              <>
+                New here?{" "}
+                <button type="button" onClick={() => switchMode("signup")} className="font-medium text-primary hover:underline">
+                  Create an account
                 </button>
-              ))}
-            </div>
-          </div>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button type="button" onClick={() => switchMode("signin")} className="font-medium text-primary hover:underline">
+                  Sign in
+                </button>
+              </>
+            )}
+          </p>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Frontend demo · predictions are simulated locally, no student data leaves this browser.
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Accounts are stored in Firebase Authentication · profiles saved in Firestore.
           </p>
         </div>
       </section>

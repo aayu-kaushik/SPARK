@@ -25,11 +25,7 @@ function Index() {
   const { user, ready } = useAuth();
 
   if (!ready) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-background">
-        <span className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <Navigate to="/login" replace />;
   }
 
   return <Navigate to={user ? ROLE_HOME[user.role] : "/login"} replace />;
