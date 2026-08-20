@@ -48,7 +48,7 @@ const FIREBASE_AUTH_ERRORS: Record<string, string> = {
   "auth/user-disabled": "This account has been disabled. Contact your administrator.",
   "auth/email-already-in-use": "An account with this email already exists. Try signing in instead.",
   "auth/weak-password": "Password must be at least 6 characters.",
-  "permission-denied": "Unable to save your profile. Check Firestore is enabled in Firebase Console.",
+  "permission-denied": "Firestore blocked this action. Signed-in users need permission to read contacts and send messages.",
 };
 
 export function getFirebaseAuthErrorMessage(error: unknown): string {

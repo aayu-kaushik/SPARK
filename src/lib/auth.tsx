@@ -1,4 +1,4 @@
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
@@ -15,6 +15,7 @@ import { createUserProfile, getUserProfile, type UserProfile } from "@/firebase/
 export type Role = "admin" | "practitioner" | "student";
 
 export interface AuthUser {
+  uid: string;
   name: string;
   email: string;
   role: Role;
@@ -87,18 +88,36 @@ function clearStoredUser() {
   }
 }
 
-async function resolveUserFromFirebase(uid: string, email: string): Promise<AuthUser | null> {
+async function resolveUserFromFirebase(firebaseUser: User): Promise<AuthUser | null> {
+  const uid = firebaseUser.uid;
+  const email = firebaseUser.email ?? "";
+  const fallbackName = firebaseUser.displayName?.trim() || email.split("@")[0] || "User";
+
   try {
     const profile = await getUserProfile(uid);
-    if (profile) return profileToAuthUser(profile);
+    if (profile) {
+      return {
+        ...profileToAuthUser(profile),
+        uid,
+        name: profile.name?.trim() || fallbackName,
+        email: profile.email || email,
+      };
+    }
   } catch {
     /* fall back to cached session */
   }
-  return loadStoredUser(email);
+
+  const stored = email ? loadStoredUser(email) : null;
+  if (stored) {
+    return { ...stored, uid, name: stored.name?.trim() || fallbackName, email: stored.email || email };
+  }
+
+  return null;
 }
 
 function profileToAuthUser(profile: UserProfile): AuthUser {
   return {
+    uid: profile.uid,
     name: profile.name,
     email: profile.email,
     role: profile.role,
@@ -125,9 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const authUser = await resolveUserFromFirebase(firebaseUser.uid, firebaseUser.email);
+      const authUser = await resolveUserFromFirebase(firebaseUser);
       if (!cancelled) {
-        setUser(authUser);
+        setUser(authUser ? { ...authUser, uid: firebaseUser.uid } : null);
         setReady(true);
       }
     });
@@ -148,12 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "Unable to sign in. Please try again." };
       }
 
-      const authUser = await resolveUserFromFirebase(firebaseUser.uid, firebaseUser.email);
-      if (!authUser) {
+      const resolved = await resolveUserFromFirebase(firebaseUser);
+      if (!resolved) {
         await logoutUser();
         return { ok: false, error: "No account profile found. Please create an account first." };
       }
 
+      const authUser = { ...resolved, uid: firebaseUser.uid };
       persistUser(authUser, remember);
       setUser(authUser);
       return { ok: true, user: authUser };
@@ -168,13 +188,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
         const credential = await registerUser(email.trim(), password, persistence);
         const authUser: AuthUser = {
+          uid: credential.user.uid,
           name: name.trim(),
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           role,
           title: ROLE_LABEL[role],
           department: "",
         };
 
+        await updateProfile(credential.user, { displayName: authUser.name });
         await createUserProfile(credential.user.uid, authUser);
         persistUser(authUser, remember);
         setUser(authUser);

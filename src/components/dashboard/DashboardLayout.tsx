@@ -38,7 +38,7 @@ export function DashboardLayout({ role, children }: { role: Role; children: Reac
         <Topbar title={current} onMenu={() => setOpen(true)} />
         <main className="flex-1 space-y-6 p-4 sm:p-6">{children}</main>
         <footer className="border-t border-border px-6 py-4 text-xs text-muted-foreground">
-          EduPredict AI · Predictive Student Success Platform · Model v3.2.1 · Frontend demo with simulated
+          SPARK · Student Performance and Risk Knowledgebase · Model v3.2.1 · Frontend demo with simulated
           predictions
         </footer>
       </div>

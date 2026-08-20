@@ -13,13 +13,13 @@ import { fetchStudents } from "@/services/api";
 export const Route = createFileRoute("/admin/predictions")({
   head: () => ({
     meta: [
-      { title: "Dropout Predictions — EduPredict AI" },
+      { title: "Dropout Predictions — SPARK" },
       {
         name: "description",
         content:
           "Model performance metrics and an interactive AI dropout prediction simulator for testing student risk scenarios.",
       },
-      { property: "og:title", content: "AI Dropout Predictions — EduPredict AI" },
+      { property: "og:title", content: "AI Dropout Predictions — SPARK" },
       { property: "og:description", content: "Model accuracy, feature importance and an interactive prediction simulator." },
     ],
   }),

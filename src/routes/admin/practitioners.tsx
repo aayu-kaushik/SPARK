@@ -17,13 +17,13 @@ import { fetchPractitioners } from "@/services/api";
 export const Route = createFileRoute("/admin/practitioners")({
   head: () => ({
     meta: [
-      { title: "Practitioners — EduPredict AI" },
+      { title: "Practitioners — SPARK" },
       {
         name: "description",
         content:
           "Manage mentors and faculty practitioners, their assigned students, at-risk caseload and logged interventions.",
       },
-      { property: "og:title", content: "Practitioner Management — EduPredict AI" },
+      { property: "og:title", content: "Practitioner Management — SPARK" },
       { property: "og:description", content: "Mentor caseloads, at-risk counts and intervention activity." },
     ],
   }),

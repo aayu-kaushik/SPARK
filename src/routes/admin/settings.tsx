@@ -13,12 +13,12 @@ import { modelMetrics } from "@/data/mockData";
 export const Route = createFileRoute("/admin/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — EduPredict AI" },
+      { title: "Settings — SPARK" },
       {
         name: "description",
         content: "Configure institution details, AI risk thresholds, alerting rules and model retraining preferences.",
       },
-      { property: "og:title", content: "Settings — EduPredict AI" },
+      { property: "og:title", content: "Settings — SPARK" },
       { property: "og:description", content: "Institution, risk threshold and alerting configuration." },
     ],
   }),
@@ -43,7 +43,7 @@ function AdminSettings() {
             {[
               ["Institution name", "Northline Institute of Technology"],
               ["Academic year", "2025 – 2026"],
-              ["Primary contact", "registrar@edupredict.ai"],
+              ["Primary contact", "registrar@spark.edu"],
             ].map(([label, value]) => (
               <div key={label} className="space-y-2">
                 <Label>{label}</Label>

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { ROLE_LABEL, useAuth, type Role } from "@/lib/auth";
 import { initials } from "@/lib/risk";
 import { cn } from "@/lib/utils";
@@ -100,10 +101,10 @@ export function Sidebar({
             </span>
             <span className="min-w-0">
               <span className="block truncate font-display text-[15px] font-bold leading-tight text-sidebar-foreground">
-                EduPredict AI
+                {BRAND_NAME}
               </span>
               <span className="block truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-                Student Success
+                {BRAND_TAGLINE}
               </span>
             </span>
           </Link>
@@ -149,7 +150,7 @@ export function Sidebar({
         <div className="border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5">
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-              {initials(user?.name ?? "EP")}
+              {initials(user?.name ?? "SP")}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-sidebar-foreground">{user?.name}</p>

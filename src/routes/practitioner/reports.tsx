@@ -5,9 +5,9 @@ import { PractitionerPage } from "@/components/pages/PractitionerPages";
 export const Route = createFileRoute("/practitioner/reports")({
   head: () => ({
     meta: [
-      { title: "Reports — EduPredict AI" },
+      { title: "Reports — SPARK" },
       { name: "description", content: "Export cohort risk and intervention summaries." },
-      { property: "og:title", content: "Reports — EduPredict AI" },
+      { property: "og:title", content: "Reports — SPARK" },
       { property: "og:description", content: "Export cohort risk and intervention summaries." },
     ],
   }),

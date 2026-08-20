@@ -8,13 +8,13 @@ import { fetchStudent } from "@/services/api";
 export const Route = createFileRoute("/admin/students/$studentld")({
   head: () => ({
     meta: [
-      { title: "Student Risk Profile — EduPredict AI" },
+      { title: "Student Risk Profile — SPARK" },
       {
         name: "description",
         content:
           "Detailed AI dropout prediction for a single student: risk score, contributing factors, attendance, GPA trend and recommended interventions.",
       },
-      { property: "og:title", content: "Student Risk Profile — EduPredict AI" },
+      { property: "og:title", content: "Student Risk Profile — SPARK" },
       { property: "og:description", content: "AI dropout prediction breakdown and intervention plan for one student." },
     ],
   }),

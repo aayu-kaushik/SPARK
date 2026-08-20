@@ -16,13 +16,13 @@ import { fetchStudents } from "@/services/api";
 export const Route = createFileRoute("/practitioner/dashboard")({
   head: () => ({
     meta: [
-      { title: "Practitioner Dashboard — EduPredict AI" },
+      { title: "Practitioner Dashboard — SPARK" },
       {
         name: "description",
         content:
           "Mentor view of assigned students: at-risk caseload, AI intervention queue and cohort risk trends in one place.",
       },
-      { property: "og:title", content: "Practitioner Dashboard — EduPredict AI" },
+      { property: "og:title", content: "Practitioner Dashboard — SPARK" },
       { property: "og:description", content: "Mentor caseload, AI intervention queue and cohort risk trends." },
     ],
   }),
@@ -38,7 +38,7 @@ function PractitionerDashboard() {
   return (
     <>
       <PageHeader
-        title={`${greeting()}, ${user?.name ?? "Practitioner"} 👋`}
+        title={`${greeting()}, ${user?.name ?? "Practitioner"}`}
         subtitle="Your mentoring cohort, ranked by AI dropout risk."
         actions={
           <Button asChild>

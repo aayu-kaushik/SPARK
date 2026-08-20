@@ -25,13 +25,13 @@ import { fetchStudents } from "@/services/api";
 export const Route = createFileRoute("/admin/students/")({
   head: () => ({
     meta: [
-      { title: "Students — EduPredict AI" },
+      { title: "Students — SPARK" },
       {
         name: "description",
         content:
           "Search, filter and manage every enrolled student with attendance, CGPA and AI dropout risk scores in one data table.",
       },
-      { property: "og:title", content: "Student Management — EduPredict AI" },
+      { property: "og:title", content: "Student Management — SPARK" },
       { property: "og:description", content: "Institution-wide student records with AI risk scoring." },
     ],
   }),

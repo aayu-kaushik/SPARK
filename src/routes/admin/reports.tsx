@@ -11,13 +11,13 @@ import { generateReport } from "@/services/api";
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({
     meta: [
-      { title: "Reports — EduPredict AI" },
+      { title: "Reports — SPARK" },
       {
         name: "description",
         content:
           "Generate student risk, department, attendance, academic performance and intervention reports as PDF or CSV exports.",
       },
-      { property: "og:title", content: "Reports — EduPredict AI" },
+      { property: "og:title", content: "Reports — SPARK" },
       { property: "og:description", content: "Export institutional dropout risk and intervention reports." },
     ],
   }),

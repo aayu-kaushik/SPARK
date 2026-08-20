@@ -32,13 +32,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({
     meta: [
-      { title: "Admin Dashboard — EduPredict AI" },
+      { title: "Admin Dashboard — SPARK" },
       {
         name: "description",
         content:
           "Institution-wide dropout risk overview: AI risk distribution, prediction accuracy, risk trends and students requiring attention.",
       },
-      { property: "og:title", content: "Admin Dashboard — EduPredict AI" },
+      { property: "og:title", content: "Admin Dashboard — SPARK" },
       { property: "og:description", content: "Institution-wide AI dropout risk analytics and intervention queue." },
     ],
   }),
@@ -57,7 +57,7 @@ function AdminDashboard() {
   return (
     <>
       <PageHeader
-        title={`${greeting()}, ${user?.name.split(" ").slice(-1)[0] ?? "Admin"} 👋`}
+        title={`${greeting()}, ${user?.name.split(" ").slice(-1)[0] ?? "Admin"}`}
         subtitle="Here's an overview of student success and dropout risk across the institution."
         actions={
           <>

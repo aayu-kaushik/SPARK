@@ -177,7 +177,7 @@ export function Topbar({ title, onMenu }: { title: string; onMenu: () => void })
           <DropdownMenuTrigger asChild>
             <button className="flex shrink-0 items-center gap-2.5 rounded-xl border border-border px-2 py-1.5 transition-colors hover:bg-muted">
               <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                {initials(user?.name ?? "EP")}
+                {initials(user?.name ?? "SP")}
               </span>
               <span className="hidden text-left sm:block">
                 <span className="block max-w-[140px] truncate text-sm font-semibold leading-tight">{user?.name}</span>

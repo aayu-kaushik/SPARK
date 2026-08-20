@@ -5,9 +5,9 @@ import { StudentPage } from "@/components/pages/StudentPages";
 export const Route = createFileRoute("/student/recommendations")({
   head: () => ({
     meta: [
-      { title: "Recommendations — EduPredict AI" },
+      { title: "Recommendations — SPARK" },
       { name: "description", content: "Personalised AI suggestions to improve your academic outcome." },
-      { property: "og:title", content: "Recommendations — EduPredict AI" },
+      { property: "og:title", content: "Recommendations — SPARK" },
       { property: "og:description", content: "Personalised AI suggestions to improve your academic outcome." },
     ],
   }),

@@ -5,9 +5,9 @@ import { StudentPage } from "@/components/pages/StudentPages";
 export const Route = createFileRoute("/student/attendance")({
   head: () => ({
     meta: [
-      { title: "My Attendance — EduPredict AI" },
+      { title: "My Attendance — SPARK" },
       { name: "description", content: "Subject-wise and monthly attendance with eligibility warnings." },
-      { property: "og:title", content: "My Attendance — EduPredict AI" },
+      { property: "og:title", content: "My Attendance — SPARK" },
       { property: "og:description", content: "Subject-wise and monthly attendance with eligibility warnings." },
     ],
   }),

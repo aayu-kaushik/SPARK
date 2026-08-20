@@ -80,13 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "EduPredict AI — Student Dropout Prediction Platform" },
+      { title: "SPARK — Student Performance and Risk Knowledgebase" },
       {
         name: "description",
         content:
           "AI-powered dropout prediction and student risk management for colleges: risk analytics, early intervention and mentor–student communication.",
       },
-      { property: "og:title", content: "EduPredict AI — Student Dropout Prediction Platform" },
+      { property: "og:title", content: "SPARK — Student Performance and Risk Knowledgebase" },
       {
         property: "og:description",
         content: "Predictive analytics that helps colleges identify at-risk students and intervene early.",

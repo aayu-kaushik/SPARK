@@ -16,13 +16,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/admin/analytics")({
   head: () => ({
     meta: [
-      { title: "Risk Analytics — EduPredict AI" },
+      { title: "Risk Analytics — SPARK" },
       {
         name: "description",
         content:
           "Department-level dropout risk analytics: comparative risk rates, attendance, CGPA and a risk-factor heatmap across faculties.",
       },
-      { property: "og:title", content: "Risk Analytics — EduPredict AI" },
+      { property: "og:title", content: "Risk Analytics — SPARK" },
       { property: "og:description", content: "Compare dropout risk, attendance and CGPA across every department." },
     ],
   }),

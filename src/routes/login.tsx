@@ -23,19 +23,20 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BRAND_FULL, BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { ROLE_HOME, useAuth, type Role } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign In — EduPredict AI" },
+      { title: `Sign In — ${BRAND_NAME}` },
       {
         name: "description",
         content:
-          "Sign in or create an account on EduPredict AI to access AI dropout risk insights.",
+          `Sign in or create an account on ${BRAND_FULL} to access AI dropout risk insights.`,
       },
-      { property: "og:title", content: "Sign In — EduPredict AI" },
+      { property: "og:title", content: `Sign In — ${BRAND_NAME}` },
       { property: "og:description", content: "AI-Powered Student Success & Dropout Prediction." },
     ],
   }),
@@ -144,8 +145,7 @@ function LoginPage() {
             <GraduationCap className="size-6" />
           </span>
           <div>
-            <p className="font-display text-lg font-bold leading-tight">EduPredict AI</p>
-            <p className="text-xs text-primary-foreground/75">Student Success Intelligence</p>
+            <p className="font-display text-lg font-bold leading-snug">{BRAND_FULL}</p>
           </div>
         </div>
 
@@ -157,7 +157,7 @@ function LoginPage() {
             Identify students at risk of dropping out — months before it happens.
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-primary-foreground/80">
-            EduPredict AI combines attendance, academic performance, engagement and wellbeing signals into a single
+            SPARK combines attendance, academic performance, engagement and wellbeing signals into a single
             explainable risk score, so mentors can intervene while it still matters.
           </p>
 
@@ -198,13 +198,13 @@ function LoginPage() {
               <GraduationCap className="size-6" />
             </span>
             <div>
-              <p className="font-display text-lg font-bold leading-tight">EduPredict AI</p>
-              <p className="text-xs text-muted-foreground">AI-Powered Student Success</p>
+              <p className="font-display text-lg font-bold leading-snug">{BRAND_FULL}</p>
+              <p className="text-xs text-muted-foreground">{BRAND_TAGLINE}</p>
             </div>
           </div>
 
-          <h1 className="mt-8 font-display text-[26px] font-bold text-foreground lg:mt-0">EduPredict AI</h1>
-          <p className="mt-1 text-sm text-muted-foreground">AI-Powered Student Success & Dropout Prediction</p>
+          <h1 className="mt-8 font-display text-[26px] font-bold text-foreground lg:mt-0">{BRAND_NAME}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{BRAND_TAGLINE}</p>
 
           <div className="mt-7 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
             <button
@@ -287,7 +287,7 @@ function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@edupredict.ai"
+                  placeholder="you@spark.edu"
                   className="rounded-xl pl-9"
                 />
               </div>
