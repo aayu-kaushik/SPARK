@@ -1,21 +1,38 @@
+
 import {
   collection,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   type Unsubscribe,
 } from "firebase/firestore";
 
+import { getFirebaseAuth } from "./auth";
 import { getDb } from "./config";
 
 const USERS_COLLECTION = "users";
 
-export type UserRole = "admin" | "practitioner" | "student";
+export type UserRole =
+  | "admin"
+  | "practitioner"
+  | "student";
+
+export function isUserRole(
+  value: unknown,
+): value is UserRole {
+  return (
+    value === "admin" ||
+    value === "practitioner" ||
+    value === "student"
+  );
+}
 
 export interface UserProfile {
   uid: string;
@@ -27,50 +44,77 @@ export interface UserProfile {
   createdAt?: unknown;
 }
 
-// =========================================================
-// CREATE USER PROFILE
-// =========================================================
+export interface UserProfileUpdate {
+  name?: string;
+  title?: string;
+  department?: string;
+}
 
-export async function createUserProfile(
-  uid: string,
-  user: Omit<UserProfile, "uid" | "createdAt">,
-): Promise<void> {
-  await setDoc(doc(getDb(), USERS_COLLECTION, uid), {
-    uid,
-    name: user.name,
-    email: user.email.trim().toLowerCase(),
-    role: user.role,
-    title: user.title,
-    department: user.department,
-    createdAt: serverTimestamp(),
-  });
+export interface StudentAccountOption {
+  uid: string;
+  name: string;
+  email: string;
+  department: string;
+}
+
+export interface PractitionerAccountOption {
+  uid: string;
+  name: string;
+  email: string;
+  department: string;
+  title: string;
 }
 
 // =========================================================
-// GET CURRENT USER PROFILE
+// FIRESTORE REFERENCE
 // =========================================================
 
-export async function getUserProfile(
-  uid: string,
-): Promise<UserProfile | null> {
-  const snapshot = await getDoc(
-    doc(getDb(), USERS_COLLECTION, uid),
+function getUserDocument(uid: string) {
+  return doc(
+    getDb(),
+    USERS_COLLECTION,
+    uid,
   );
+}
 
-  if (!snapshot.exists()) {
-    return null;
+// =========================================================
+// AUTHENTICATION HELPERS
+// =========================================================
+
+function requireSignedInUser(): string {
+  const currentUser =
+    getFirebaseAuth().currentUser;
+
+  if (!currentUser) {
+    throw new Error(
+      "You must be signed in to perform this action.",
+    );
   }
 
-  const data = snapshot.data() as UserProfile;
+  return currentUser.uid;
+}
 
-  return {
-    ...data,
-    uid: data.uid || snapshot.id,
-  };
+async function requireAdmin(): Promise<string> {
+  const uid = requireSignedInUser();
+
+  const snapshot = await getDoc(
+    getUserDocument(uid),
+  );
+
+  if (
+    !snapshot.exists() ||
+    snapshot.data().role !== "admin"
+  ) {
+    throw new Error(
+      "Only administrators can perform this action.",
+    );
+  }
+
+  return uid;
 }
 
 // =========================================================
-// INTERNAL PROFILE MAPPER
+// PROFILE MAPPER
 // =========================================================
 
 function mapProfile(
@@ -79,20 +123,81 @@ function mapProfile(
 ): UserProfile {
   return {
     ...data,
-    uid: data.uid || id,
+    uid: id,
   };
 }
 
 // =========================================================
-// LIST ALL USER PROFILES
-//
-// Keep this for Admin / other parts of SPARK.
-// Do NOT use this from the Student message picker.
+// CREATE USER PROFILE — EXISTING FUNCTION
 // =========================================================
 
-export async function listUserProfiles(): Promise<UserProfile[]> {
+export async function createUserProfile(
+  uid: string,
+  user: Omit<
+    UserProfile,
+    "uid" | "createdAt"
+  >,
+): Promise<void> {
+  if (!uid.trim()) {
+    throw new Error(
+      "User UID is required.",
+    );
+  }
+
+  if (!isUserRole(user.role)) {
+    throw new Error(
+      "Invalid user role.",
+    );
+  }
+
+  await setDoc(
+    getUserDocument(uid),
+    {
+      uid,
+      name: user.name.trim(),
+      email: user.email.trim().toLowerCase(),
+      role: user.role,
+      title: user.title.trim(),
+      department: user.department.trim(),
+      createdAt: serverTimestamp(),
+    },
+  );
+}
+
+// =========================================================
+// GET USER PROFILE — EXISTING FUNCTION
+// =========================================================
+
+export async function getUserProfile(
+  uid: string,
+): Promise<UserProfile | null> {
+  if (!uid) return null;
+
+  const snapshot = await getDoc(
+    getUserDocument(uid),
+  );
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return mapProfile(
+    snapshot.id,
+    snapshot.data() as UserProfile,
+  );
+}
+
+// =========================================================
+// LIST ALL USER PROFILES — EXISTING FUNCTION
+// =========================================================
+
+export async function listUserProfiles():
+  Promise<UserProfile[]> {
   const snapshot = await getDocs(
-    collection(getDb(), USERS_COLLECTION),
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
   );
 
   return snapshot.docs.map((entry) =>
@@ -105,17 +210,19 @@ export async function listUserProfiles(): Promise<UserProfile[]> {
 
 // =========================================================
 // SUBSCRIBE TO ALL USER PROFILES
-//
-// Again: useful elsewhere, but the Student message picker
-// should use subscribeMessageContacts() instead.
 // =========================================================
 
 export function subscribeUserProfiles(
-  onChange: (profiles: UserProfile[]) => void,
+  onChange: (
+    profiles: UserProfile[],
+  ) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
   return onSnapshot(
-    collection(getDb(), USERS_COLLECTION),
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
 
     (snapshot) => {
       onChange(
@@ -135,24 +242,34 @@ export function subscribeUserProfiles(
 }
 
 // =========================================================
-// FIND USER BY EMAIL
-//
-// Keep this because another part of your application may
-// still use it. MessagePanel no longer needs to use it.
+// FIND USER BY EMAIL — EXISTING FUNCTION
 // =========================================================
 
 export async function findUserByEmail(
   email: string,
 ): Promise<UserProfile | null> {
-  const normalizedEmail = email
-    .trim()
-    .toLowerCase();
+  const normalizedEmail =
+    email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const usersQuery = query(
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
+    where(
+      "email",
+      "==",
+      normalizedEmail,
+    ),
+    limit(1),
+  );
 
   const snapshot = await getDocs(
-    query(
-      collection(getDb(), USERS_COLLECTION),
-      where("email", "==", normalizedEmail),
-    ),
+    usersQuery,
   );
 
   const match = snapshot.docs[0];
@@ -166,7 +283,7 @@ export async function findUserByEmail(
 }
 
 // =========================================================
-// ROLE-BASED MESSAGING CHECK
+// ROLE-BASED MESSAGING CHECK — PRESERVED
 // =========================================================
 
 export function canMessageRole(
@@ -198,7 +315,7 @@ export function canMessageRole(
 }
 
 // =========================================================
-// GET ROLES THAT CURRENT USER MAY MESSAGE
+// GET MESSAGEABLE ROLES — PRESERVED
 // =========================================================
 
 function getMessageableRoles(
@@ -225,19 +342,7 @@ function getMessageableRoles(
 }
 
 // =========================================================
-// LIST MESSAGE CONTACTS
-//
-// IMPORTANT:
-// This does NOT request every user.
-//
-// Student:
-//    Admin + Practitioner
-//
-// Practitioner:
-//    Admin + Student
-//
-// Admin:
-//    Practitioner + Student
+// LIST MESSAGE CONTACTS — PRESERVED
 // =========================================================
 
 export async function listMessageContacts(
@@ -247,7 +352,10 @@ export async function listMessageContacts(
     getMessageableRoles(currentRole);
 
   const contactsQuery = query(
-    collection(getDb(), USERS_COLLECTION),
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
     where(
       "role",
       "in",
@@ -255,8 +363,9 @@ export async function listMessageContacts(
     ),
   );
 
-  const snapshot =
-    await getDocs(contactsQuery);
+  const snapshot = await getDocs(
+    contactsQuery,
+  );
 
   return snapshot.docs.map((entry) =>
     mapProfile(
@@ -267,19 +376,24 @@ export async function listMessageContacts(
 }
 
 // =========================================================
-// REAL-TIME MESSAGE CONTACT SUBSCRIPTION
+// REAL-TIME MESSAGE CONTACTS — PRESERVED
 // =========================================================
 
 export function subscribeMessageContacts(
   currentRole: UserRole,
-  onChange: (profiles: UserProfile[]) => void,
+  onChange: (
+    profiles: UserProfile[],
+  ) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
   const allowedRoles =
     getMessageableRoles(currentRole);
 
   const contactsQuery = query(
-    collection(getDb(), USERS_COLLECTION),
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
     where(
       "role",
       "in",
@@ -291,19 +405,264 @@ export function subscribeMessageContacts(
     contactsQuery,
 
     (snapshot) => {
-      const profiles =
-        snapshot.docs.map((entry) =>
+      const profiles = snapshot.docs.map(
+        (entry) =>
           mapProfile(
             entry.id,
             entry.data() as UserProfile,
           ),
-        );
+      );
 
       onChange(profiles);
     },
 
     (error) => {
       onError?.(error);
+    },
+  );
+}
+
+// =========================================================
+// ADMIN — LIST STUDENT ACCOUNTS
+// =========================================================
+
+export async function listStudentAccounts():
+  Promise<StudentAccountOption[]> {
+  await requireAdmin();
+
+  const studentsQuery = query(
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
+    where(
+      "role",
+      "==",
+      "student",
+    ),
+  );
+
+  const snapshot = await getDocs(
+    studentsQuery,
+  );
+
+  return snapshot.docs.map((entry) => {
+    const data = entry.data();
+
+    return {
+      uid: entry.id,
+      name:
+        typeof data.name === "string"
+          ? data.name
+          : "Student",
+      email:
+        typeof data.email === "string"
+          ? data.email
+          : "",
+      department:
+        typeof data.department === "string"
+          ? data.department
+          : "",
+    };
+  });
+}
+
+// =========================================================
+// ADMIN — LIST PRACTITIONER ACCOUNTS
+// =========================================================
+
+export async function listPractitionerAccounts():
+  Promise<PractitionerAccountOption[]> {
+  await requireAdmin();
+
+  const practitionersQuery = query(
+    collection(
+      getDb(),
+      USERS_COLLECTION,
+    ),
+    where(
+      "role",
+      "==",
+      "practitioner",
+    ),
+  );
+
+  const snapshot = await getDocs(
+    practitionersQuery,
+  );
+
+  return snapshot.docs.map((entry) => {
+    const data = entry.data();
+
+    return {
+      uid: entry.id,
+      name:
+        typeof data.name === "string"
+          ? data.name
+          : "Practitioner",
+      email:
+        typeof data.email === "string"
+          ? data.email
+          : "",
+      department:
+        typeof data.department === "string"
+          ? data.department
+          : "",
+      title:
+        typeof data.title === "string"
+          ? data.title
+          : "",
+    };
+  });
+}
+
+// =========================================================
+// ADMIN — GET STUDENT ACCOUNT BY UID
+// =========================================================
+
+export async function getStudentAccount(
+  uid: string,
+): Promise<StudentAccountOption | null> {
+  await requireAdmin();
+
+  if (!uid.trim()) {
+    return null;
+  }
+
+  const snapshot = await getDoc(
+    getUserDocument(uid),
+  );
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+
+  if (data.role !== "student") {
+    return null;
+  }
+
+  return {
+    uid: snapshot.id,
+    name:
+      typeof data.name === "string"
+        ? data.name
+        : "Student",
+    email:
+      typeof data.email === "string"
+        ? data.email
+        : "",
+    department:
+      typeof data.department === "string"
+        ? data.department
+        : "",
+  };
+}
+
+// =========================================================
+// ADMIN — GET PRACTITIONER ACCOUNT BY UID
+// =========================================================
+
+export async function getPractitionerAccount(
+  uid: string,
+): Promise<PractitionerAccountOption | null> {
+  await requireAdmin();
+
+  if (!uid.trim()) {
+    return null;
+  }
+
+  const snapshot = await getDoc(
+    getUserDocument(uid),
+  );
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+
+  if (data.role !== "practitioner") {
+    return null;
+  }
+
+  return {
+    uid: snapshot.id,
+    name:
+      typeof data.name === "string"
+        ? data.name
+        : "Practitioner",
+    email:
+      typeof data.email === "string"
+        ? data.email
+        : "",
+    department:
+      typeof data.department === "string"
+        ? data.department
+        : "",
+    title:
+      typeof data.title === "string"
+        ? data.title
+        : "",
+  };
+}
+
+// =========================================================
+// ADMIN — UPDATE BASIC USER PROFILE
+// =========================================================
+
+export async function updateManagedUserProfile(
+  uid: string,
+  updates: UserProfileUpdate,
+): Promise<void> {
+  await requireAdmin();
+
+  if (!uid.trim()) {
+    throw new Error(
+      "User UID is required.",
+    );
+  }
+
+  const cleaned: UserProfileUpdate = {};
+
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+
+    if (!name) {
+      throw new Error(
+        "Name cannot be empty.",
+      );
+    }
+
+    cleaned.name = name;
+  }
+
+  if (updates.title !== undefined) {
+    cleaned.title =
+      updates.title.trim();
+  }
+
+  if (updates.department !== undefined) {
+    cleaned.department =
+      updates.department.trim();
+  }
+
+  if (
+    Object.keys(cleaned).length === 0
+  ) {
+    throw new Error(
+      "No profile changes provided.",
+    );
+  }
+
+  // Do not allow role, UID, or login email
+  // changes through this helper.
+  await updateDoc(
+    getUserDocument(uid),
+    {
+      ...cleaned,
+      updatedAt: serverTimestamp(),
     },
   );
 }

@@ -1,3 +1,4 @@
+
 import {
   CalendarCheck,
   ClipboardCheck,
@@ -19,7 +20,7 @@ import { RiskGauge } from "@/components/shared/RiskGauge";
 import { StatCard } from "@/components/shared/StatCard";
 import { Progress } from "@/components/ui/progress";
 import {
-  getCurrentStudentData,
+  subscribeStudentData,
   type StudentData,
 } from "@/firebase/students";
 import { useAuth } from "@/lib/auth";
@@ -165,72 +166,42 @@ export function StudentPage({
       return;
     }
 
-    let cancelled = false;
+    setLoading(true);
+    setError("");
 
-    async function loadStudent() {
-      try {
-        setLoading(true);
-        setError("");
-
-        /*
-         * SECURITY:
-         *
-         * We do NOT take a student UID/student ID from:
-         * - URL
-         * - query parameters
-         * - form input
-         * - local storage
-         *
-         * getCurrentStudentData() gets the currently
-         * authenticated Firebase user's UID and loads:
-         *
-         * students/{currentUser.uid}
-         *
-         * Firestore Security Rules provide the second
-         * security layer.
-         */
-        const data = await getCurrentStudentData();
-
-        if (cancelled) {
-          return;
-        }
+    /*
+     * SECURITY:
+     *
+     * The authenticated Firebase UID is the only student identity used here.
+     * We never accept a student UID from the URL, query string, form, or
+     * local storage. Firestore rules enforce the same ownership boundary.
+     *
+     * A realtime listener also keeps the dashboard synchronized when an
+     * authorized admin/practitioner updates the academic record.
+     */
+    const unsubscribe = subscribeStudentData(
+      user.uid,
+      (data) => {
+        setLoading(false);
 
         if (!data) {
           setStudent(null);
-
-          setError(
-            "No academic record has been created for your account yet.",
-          );
-
+          setError("No academic record has been created for your account yet.");
           return;
         }
 
+        setError("");
         setStudent(data);
-      } catch (err) {
-        console.error(
-          "Student data loading failed:",
-          err,
-        );
+      },
+      (listenerError) => {
+        console.error("Student data listener failed:", listenerError);
+        setStudent(null);
+        setError("Your academic information could not be loaded.");
+        setLoading(false);
+      },
+    );
 
-        if (!cancelled) {
-          setStudent(null);
-
-          setError(
-            "Your academic information could not be loaded.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadStudent();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => unsubscribe();
   }, [ready, user?.uid, user?.role]);
 
   if (!ready || loading) {

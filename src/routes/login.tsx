@@ -1,3 +1,4 @@
+
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Eye,
@@ -6,10 +7,8 @@ import {
   Loader2,
   Lock,
   Mail,
-  UserCog,
   UserPlus,
   UserRound,
-  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BRAND_FULL, BRAND_NAME } from "@/lib/brand";
-import { ROLE_HOME, useAuth, type Role } from "@/lib/auth";
+import { ROLE_HOME, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
@@ -47,39 +46,11 @@ export const Route = createFileRoute("/login")({
 
 type AuthMode = "signin" | "signup";
 
-const ROLE_OPTIONS: {
-  role: Role;
-  label: string;
-  icon: typeof UserCog;
-  blurb: string;
-}[] = [
-  {
-    role: "admin",
-    label: "Admin",
-    icon: UserCog,
-    blurb: "Institution-wide analytics",
-  },
-  {
-    role: "practitioner",
-    label: "Practitioner",
-    icon: Users,
-    blurb: "Mentor your students",
-  },
-  {
-    role: "student",
-    label: "Student",
-    icon: UserRound,
-    blurb: "Track your progress",
-  },
-];
-
 function LoginPage() {
   const { signIn, signUp, user, ready } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<AuthMode>("signin");
-  const [role, setRole] = useState<Role>("student");
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -128,7 +99,7 @@ function LoginPage() {
       const result =
         mode === "signin"
           ? await signIn(email, password, remember)
-          : await signUp(name, email, password, role, remember);
+          : await signUp(name, email, password, "student", remember);
 
       if (!result.ok || !result.user) {
         setError(result.error ?? "Unable to continue.");
@@ -257,45 +228,11 @@ function LoginPage() {
                   </div>
                 </div>
 
-                {/* ROLE SELECTION */}
-
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Register as
-                  </Label>
-
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {ROLE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.role}
-                        type="button"
-                        onClick={() => setRole(opt.role)}
-                        className={cn(
-                          "rounded-xl border p-3 text-left transition-all duration-200",
-                          role === opt.role
-                            ? "border-primary bg-primary-soft shadow-card"
-                            : "border-border bg-card hover:border-primary/40 hover:bg-muted/50",
-                        )}
-                      >
-                        <opt.icon
-                          className={cn(
-                            "size-4.5",
-                            role === opt.role
-                              ? "text-primary"
-                              : "text-muted-foreground",
-                          )}
-                        />
-
-                        <span className="mt-2 block text-sm font-semibold">
-                          {opt.label}
-                        </span>
-
-                        <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
-                          {opt.blurb}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-3 text-sm">
+                  <p className="font-semibold text-foreground">Student account</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Admin and practitioner accounts are provisioned by SPARK administrators.
+                  </p>
                 </div>
               </>
             )}

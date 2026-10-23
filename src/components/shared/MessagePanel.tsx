@@ -110,44 +110,48 @@ export function MessagePanel() {
   // LOAD CONVERSATIONS FOR CURRENT LOGGED-IN USER ONLY
   // =========================================================
 
-  useEffect(() => {
-    if (!user?.uid) {
-      setThreads([]);
-      setLoadingThreads(false);
-      return;
-    }
+  
+useEffect(() => {
+  if (!user?.uid) {
+    setThreads([]);
+    setLoadingThreads(false);
+    return;
+  }
 
-    setLoadingThreads(true);
+  setLoadingThreads(true);
 
-    try {
-      const unsubscribe = subscribeConversations(
-        user.uid,
+  try {
+    const unsubscribe = subscribeConversations(
+      user.uid,
 
-        (next) => {
-          setThreads(next);
-          setLoadingThreads(false);
-        },
+      (next) => {
+        setThreads(next);
+        setLoadingThreads(false);
+      },
 
-        (error) => {
-          setLoadingThreads(false);
+      (error) => {
+        setLoadingThreads(false);
 
-          toast.error("Could not load inbox", {
-            description:
-              getFirebaseAuthErrorMessage(error),
-          });
-        },
-      );
+        toast.error("Could not load inbox", {
+          description:
+            getFirebaseAuthErrorMessage(error),
+        });
+      },
+    );
 
-      return unsubscribe;
-    } catch (error) {
-      setLoadingThreads(false);
+    return unsubscribe;
+  } catch (error) {
+    setLoadingThreads(false);
 
-      toast.error("Could not load inbox", {
-        description:
-          getFirebaseAuthErrorMessage(error),
-      });
-    }
-  }, [user?.uid]);
+    toast.error("Could not load inbox", {
+      description:
+        getFirebaseAuthErrorMessage(error),
+    });
+
+    return undefined;
+  }
+}, [user?.uid]);
+
 
   // =========================================================
   // LOAD ONLY CONTACTS CURRENT USER IS ALLOWED TO MESSAGE

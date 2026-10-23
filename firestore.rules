@@ -1,30 +1,502 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =========================================================
+    // AUTHENTICATION AND ROLE HELPERS
+    // =========================================================
+
     function signedIn() {
       return request.auth != null;
     }
 
-    match /users/{userId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == userId;
+    function userExists(uid) {
+      return exists(
+        /databases/$(database)/documents/users/$(uid)
+      );
     }
 
+    function userRole(uid) {
+      return get(
+        /databases/$(database)/documents/users/$(uid)
+      ).data.role;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && userExists(request.auth.uid)
+        && userRole(request.auth.uid) == "admin";
+    }
+
+    function isPractitioner() {
+      return signedIn()
+        && userExists(request.auth.uid)
+        && userRole(request.auth.uid) == "practitioner";
+    }
+
+    function isStudent() {
+      return signedIn()
+        && userExists(request.auth.uid)
+        && userRole(request.auth.uid) == "student";
+    }
+
+    // =========================================================
+    // VALIDATION HELPERS
+    // =========================================================
+
+    function validPercentage(value) {
+      return value is number
+        && value >= 0
+        && value <= 100;
+    }
+
+    function validGpa(value) {
+      return value is number
+        && value >= 0
+        && value <= 10;
+    }
+
+    function validSemester(value) {
+      return value is int
+        && value >= 1
+        && value <= 12;
+    }
+
+    function validStudentAcademicData(data) {
+      return data.uid is string
+        && data.studentId is string
+        && data.studentId.size() > 0
+        && data.name is string
+        && data.email is string
+        && validSemester(data.semester)
+        && validGpa(data.cgpa)
+        && validGpa(data.previousGpa)
+        && validPercentage(data.attendance)
+        && validPercentage(data.assignmentCompletion)
+        && validPercentage(data.assignments)
+        && validPercentage(data.internalMarks)
+        && validPercentage(data.lmsActivity)
+        && validPercentage(data.participation)
+        && validPercentage(data.libraryUsage)
+        && validPercentage(data.financialStress)
+        && data.failedSubjects is int
+        && data.failedSubjects >= 0
+        && data.riskScore is number
+        && data.riskScore >= 0
+        && data.riskScore <= 100
+        && data.riskLevel in [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ]
+        && data.mentorId is string
+        && data.mentor is string;
+    }
+
+    function validStudentAccount(studentUid) {
+      return userExists(studentUid)
+        && userRole(studentUid) == "student";
+    }
+
+    function assignedToCurrentPractitioner(studentUid) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/students/$(studentUid)
+        )
+        && get(
+          /databases/$(database)/documents/students/$(studentUid)
+        ).data.mentorId == request.auth.uid;
+    }
+
+    // =========================================================
+    // MESSAGING ROLE HELPER
+    // =========================================================
+
+    function canMessageTarget(targetUid) {
+      let fromRole = userRole(request.auth.uid);
+      let toRole = userRole(targetUid);
+
+      return userExists(targetUid)
+        && (
+          (
+            fromRole == "student"
+            && toRole in ["admin", "practitioner"]
+          )
+          ||
+          (
+            fromRole == "practitioner"
+            && toRole in ["admin", "student"]
+          )
+          ||
+          (
+            fromRole == "admin"
+            && toRole in ["student", "practitioner"]
+          )
+        );
+    }
+
+    // =========================================================
+    // USER PROFILES
+    // =========================================================
+
+    match /users/{userId} {
+
+      // Admins: all profiles.
+      // Practitioners: profiles used by their workspace.
+      // Students: self and messageable staff contacts.
+
+      allow get: if signedIn() && (
+        isAdmin()
+        || isPractitioner()
+        || request.auth.uid == userId
+        || (
+          isStudent()
+          && resource.data.role in [
+            "admin",
+            "practitioner"
+          ]
+        )
+      );
+
+      allow list: if signedIn() && (
+        isAdmin()
+        || isPractitioner()
+        || (
+          isStudent()
+          && resource.data.role in [
+            "admin",
+            "practitioner"
+          ]
+        )
+      );
+
+      // Student self-registration is permitted.
+      // A student cannot register themselves as admin
+      // or practitioner.
+
+      allow create: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          request.auth.uid == userId
+          && request.resource.data.uid == userId
+          && request.resource.data.role == "student"
+          && request.resource.data.email
+            == request.auth.token.email
+        )
+      );
+
+      // Users may update safe profile fields only.
+      // Role, UID, email, and creation timestamp
+      // cannot be modified by non-admin users.
+
+      allow update: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          request.auth.uid == userId
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.createdAt
+            == resource.data.createdAt
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly([
+              "name",
+              "title",
+              "department",
+              "updatedAt"
+            ])
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // STUDENT ACADEMIC RECORDS
+    // =========================================================
+
+    match /students/{studentUid} {
+
+      // -------------------------------------------------------
+      // READ
+      // -------------------------------------------------------
+
+      allow get: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && resource.data.mentorId == request.auth.uid
+        )
+        ||
+        (
+          isStudent()
+          && request.auth.uid == studentUid
+        )
+      );
+
+      allow list: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && resource.data.mentorId == request.auth.uid
+        )
+      );
+
+      // -------------------------------------------------------
+      // CREATE
+      // -------------------------------------------------------
+
+      // Admins can create records for student accounts.
+      // Students can initialize only their own records.
+
+      allow create: if signedIn()
+        && request.resource.data.uid == studentUid
+        && validStudentAccount(studentUid)
+        && validStudentAcademicData(request.resource.data)
+        && (
+          isAdmin()
+          ||
+          (
+            isStudent()
+            && request.auth.uid == studentUid
+            && request.resource.data.mentorId == ""
+            && request.resource.data.riskScore == 0
+            && request.resource.data.riskLevel == "Low"
+            && request.resource.data.cgpa == 0
+            && request.resource.data.attendance == 0
+            && request.resource.data.failedSubjects == 0
+          )
+        );
+
+      // -------------------------------------------------------
+      // UPDATE
+      // -------------------------------------------------------
+
+      // Admins manage all student academic records.
+      // Practitioners may edit academic metrics for
+      // assigned students but cannot change identity,
+      // practitioner assignment, or model output fields.
+
+      allow update: if signedIn()
+        && request.resource.data.uid == studentUid
+        && validStudentAcademicData(request.resource.data)
+        && (
+          isAdmin()
+          ||
+          (
+            isPractitioner()
+            && resource.data.mentorId == request.auth.uid
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                "attendance",
+                "cgpa",
+                "previousGpa",
+                "assignments",
+                "assignmentCompletion",
+                "failedSubjects",
+                "internalMarks",
+                "lmsActivity",
+                "participation",
+                "libraryUsage",
+                "financialStress",
+                "subjects",
+                "gpaTrend",
+                "monthlyAttendance",
+                "improvements",
+                "recommendations",
+                "lastActivity",
+                "updatedAt"
+              ])
+          )
+        );
+
+      // -------------------------------------------------------
+      // DELETE
+      // -------------------------------------------------------
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // PREDICTION HISTORY
+    // =========================================================
+
+    match /predictions/{predictionId} {
+
+      allow read: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && assignedToCurrentPractitioner(
+            resource.data.studentUid
+          )
+        )
+        ||
+        (
+          isStudent()
+          && resource.data.studentUid == request.auth.uid
+        )
+      );
+
+      allow create: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && assignedToCurrentPractitioner(
+            request.resource.data.studentUid
+          )
+        )
+        ||
+        (
+          isStudent()
+          && request.resource.data.studentUid
+            == request.auth.uid
+        )
+      );
+
+      // Historical predictions are immutable.
+
+      allow update, delete: if false;
+    }
+
+    // =========================================================
+    // INTERVENTIONS
+    // =========================================================
+
+    match /interventions/{interventionId} {
+
+      allow read: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && assignedToCurrentPractitioner(
+            resource.data.studentUid
+          )
+        )
+        ||
+        (
+          isStudent()
+          && resource.data.studentUid == request.auth.uid
+        )
+      );
+
+      allow create: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && assignedToCurrentPractitioner(
+            request.resource.data.studentUid
+          )
+          && request.resource.data.assignedTo
+            == request.auth.uid
+        )
+      );
+
+      allow update: if signedIn() && (
+        isAdmin()
+        ||
+        (
+          isPractitioner()
+          && assignedToCurrentPractitioner(
+            resource.data.studentUid
+          )
+          && request.resource.data.studentUid
+            == resource.data.studentUid
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // CONVERSATIONS AND MESSAGING
+    // =========================================================
+
     match /conversations/{conversationId} {
-      function isParticipant() {
-        return signedIn() && request.auth.uid in resource.data.participantIds;
-      }
-      function staysParticipant() {
-        return signedIn() && request.auth.uid in request.resource.data.participantIds;
+
+      function isParticipant(data) {
+        return signedIn()
+          && request.auth.uid in data.participantIds;
       }
 
-      allow read: if isParticipant();
-      allow create: if staysParticipant();
-      allow update: if isParticipant() && staysParticipant();
+      function isValidPair(data) {
+        return data.participantIds is list
+          && data.participantIds.size() == 2
+          && data.participantIds[0]
+            != data.participantIds[1]
+          && (
+            (
+              data.participantIds[0] == request.auth.uid
+              && canMessageTarget(
+                data.participantIds[1]
+              )
+            )
+            ||
+            (
+              data.participantIds[1] == request.auth.uid
+              && canMessageTarget(
+                data.participantIds[0]
+              )
+            )
+          );
+      }
+
+      // Existing messaging permissions preserved.
+
+      allow read: if isParticipant(resource.data)
+        && isValidPair(resource.data);
+
+      allow create: if isParticipant(request.resource.data)
+        && isValidPair(request.resource.data);
+
+      allow update: if isParticipant(resource.data)
+        && isValidPair(request.resource.data)
+        && request.resource.data.participantIds
+          == resource.data.participantIds;
+
+      allow delete: if false;
+
+      // -------------------------------------------------------
+      // MESSAGES
+      // -------------------------------------------------------
 
       match /messages/{messageId} {
-        allow read, create: if signedIn()
-          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+
+        function parentConversation() {
+          return get(
+            /databases/$(database)/documents/conversations/$(conversationId)
+          );
+        }
+
+        allow read: if signedIn()
+          && request.auth.uid
+            in parentConversation().data.participantIds;
+
+        allow create: if signedIn()
+          && request.auth.uid
+            in parentConversation().data.participantIds
+          && request.resource.data.senderId
+            == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000;
+
+        allow update, delete: if false;
       }
     }
   }

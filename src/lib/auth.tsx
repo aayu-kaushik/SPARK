@@ -1,3 +1,4 @@
+
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -10,7 +11,8 @@ import {
   logoutUser,
   registerUser,
 } from "@/firebase/auth";
-import { createUserProfile, getUserProfile, type UserProfile } from "@/firebase/users";
+import { createUserProfile, getUserProfile, isUserRole, type UserProfile } from "@/firebase/users";
+import { ensureStudentRecord } from "@/firebase/students";
 
 export type Role = "admin" | "practitioner" | "student";
 
@@ -57,17 +59,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function loadStoredUser(email: string): AuthUser | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY) ?? window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const stored = JSON.parse(raw) as AuthUser;
-    return stored.email.toLowerCase() === email.toLowerCase() ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
 function persistUser(authUser: AuthUser, remember: boolean) {
   try {
     const store = remember ? window.localStorage : window.sessionStorage;
@@ -96,6 +87,10 @@ async function resolveUserFromFirebase(firebaseUser: User): Promise<AuthUser | n
   try {
     const profile = await getUserProfile(uid);
     if (profile) {
+      if (!isUserRole(profile.role)) {
+        return null;
+      }
+
       return {
         ...profileToAuthUser(profile),
         uid,
@@ -104,12 +99,8 @@ async function resolveUserFromFirebase(firebaseUser: User): Promise<AuthUser | n
       };
     }
   } catch {
-    /* fall back to cached session */
-  }
-
-  const stored = email ? loadStoredUser(email) : null;
-  if (stored) {
-    return { ...stored, uid, name: stored.name?.trim() || fallbackName, email: stored.email || email };
+    // Firestore is the authorization source of truth. Do not fall back to
+    // cached role data when the profile cannot be verified.
   }
 
   return null;
@@ -146,7 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const authUser = await resolveUserFromFirebase(firebaseUser);
       if (!cancelled) {
-        setUser(authUser ? { ...authUser, uid: firebaseUser.uid } : null);
+        if (!authUser) {
+          setUser(null);
+          setReady(true);
+          await logoutUser();
+          return;
+        }
+
+        setUser({ ...authUser, uid: firebaseUser.uid });
         setReady(true);
       }
     });
@@ -185,6 +183,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     async (name: string, email: string, password: string, role: Role, remember: boolean) => {
       try {
+        if (role !== "student") {
+          return { ok: false, error: "Only student accounts can be created from the public sign-up form." };
+        }
+
         const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
         const credential = await registerUser(email.trim(), password, persistence);
         const authUser: AuthUser = {
@@ -198,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         await updateProfile(credential.user, { displayName: authUser.name });
         await createUserProfile(credential.user.uid, authUser);
+        await ensureStudentRecord(credential.user.uid, authUser);
         persistUser(authUser, remember);
         setUser(authUser);
         return { ok: true, user: authUser };

@@ -41,7 +41,7 @@ import { Route as StudentProgressRouteImport } from './routes/student/progress'
 import { Route as StudentRecommendationsRouteImport } from './routes/student/recommendations'
 import { Route as StudentRiskRouteImport } from './routes/student/risk'
 import { Route as AdminStudentsIndexRouteImport } from './routes/admin/students/index'
-import { Route as AdminStudentsStudentldRouteImport } from './routes/admin/students/$studentld'
+import { Route as AdminStudentsStudentIdRouteImport } from './routes/admin/students/$studentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -203,9 +203,9 @@ const AdminStudentsIndexRoute = AdminStudentsIndexRouteImport.update({
   path: '/students/',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminStudentsStudentldRoute = AdminStudentsStudentldRouteImport.update({
-  id: '/students/$studentld',
-  path: '/students/$studentld',
+const AdminStudentsStudentIdRoute = AdminStudentsStudentIdRouteImport.update({
+  id: '/students/$studentId',
+  path: '/students/$studentId',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -241,7 +241,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/practitioner/': typeof PractitionerIndexRoute
   '/student/': typeof StudentIndexRoute
-  '/admin/students/$studentld': typeof AdminStudentsStudentldRoute
+  '/admin/students/$studentId': typeof AdminStudentsStudentIdRoute
   '/admin/students/': typeof AdminStudentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -273,7 +273,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/practitioner': typeof PractitionerIndexRoute
   '/student': typeof StudentIndexRoute
-  '/admin/students/$studentld': typeof AdminStudentsStudentldRoute
+  '/admin/students/$studentId': typeof AdminStudentsStudentIdRoute
   '/admin/students': typeof AdminStudentsIndexRoute
 }
 export interface FileRoutesById {
@@ -309,7 +309,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/practitioner/': typeof PractitionerIndexRoute
   '/student/': typeof StudentIndexRoute
-  '/admin/students/$studentld': typeof AdminStudentsStudentldRoute
+  '/admin/students/$studentId': typeof AdminStudentsStudentIdRoute
   '/admin/students/': typeof AdminStudentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -346,7 +346,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/practitioner/'
     | '/student/'
-    | '/admin/students/$studentld'
+    | '/admin/students/$studentId'
     | '/admin/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -378,7 +378,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/practitioner'
     | '/student'
-    | '/admin/students/$studentld'
+    | '/admin/students/$studentId'
     | '/admin/students'
   id:
     | '__root__'
@@ -413,7 +413,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/practitioner/'
     | '/student/'
-    | '/admin/students/$studentld'
+    | '/admin/students/$studentId'
     | '/admin/students/'
   fileRoutesById: FileRoutesById
 }
@@ -651,11 +651,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStudentsIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/students/$studentld': {
-      id: '/admin/students/$studentld'
-      path: '/students/$studentld'
-      fullPath: '/admin/students/$studentld'
-      preLoaderRoute: typeof AdminStudentsStudentldRouteImport
+    '/admin/students/$studentId': {
+      id: '/admin/students/$studentId'
+      path: '/students/$studentId'
+      fullPath: '/admin/students/$studentId'
+      preLoaderRoute: typeof AdminStudentsStudentIdRouteImport
       parentRoute: typeof AdminRoute
     }
   }
@@ -670,7 +670,7 @@ interface AdminRouteChildren {
   AdminReportsRoute: typeof AdminReportsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminStudentsStudentldRoute: typeof AdminStudentsStudentldRoute
+  AdminStudentsStudentIdRoute: typeof AdminStudentsStudentIdRoute
   AdminStudentsIndexRoute: typeof AdminStudentsIndexRoute
 }
 
@@ -683,7 +683,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminReportsRoute: AdminReportsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminStudentsStudentldRoute: AdminStudentsStudentldRoute,
+  AdminStudentsStudentIdRoute: AdminStudentsStudentIdRoute,
   AdminStudentsIndexRoute: AdminStudentsIndexRoute,
 }
 
